@@ -18,8 +18,6 @@ run-api:
 run-ui:
     cd frontend && pnpm run dev
 
-# Run both backend and frontend simultaneously
+# Run both backend and frontend using honcho and the Procfile
 run:
-    just run-api &
-    just run-ui &
-    wait
+    honcho start
