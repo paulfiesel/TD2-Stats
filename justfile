@@ -1,9 +1,3 @@
-# Variables
-venv_path := justfile_directory() + "/backend/venv"
-python := venv_path + "/bin/python"
-flask := venv_path + "/bin/flask"
-honcho := venv_path + "/bin/honcho"
-
 # Default command to list available commands
 default:
     @just --list
