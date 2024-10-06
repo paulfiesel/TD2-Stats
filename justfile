@@ -9,10 +9,10 @@ list:
     @echo "  just run-ui    - Run the React frontend with hot reloading"
     @echo "  just run       - Run both backend and frontend simultaneously"
 
-# Run Flask backend (API) with direnv handling the virtual environment
+# Run Flask backend (API)
 run-api:
     cd backend
-    FLASK_ENV=development FLASK_APP=app flask run --reload
+    FLASK_ENV=development FLASK_APP=backend/app flask run --reload
 
 # Run React frontend (UI) with hot reloading
 run-ui:
