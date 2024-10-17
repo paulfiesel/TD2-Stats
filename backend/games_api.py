@@ -3,7 +3,7 @@ import os
 import requests
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
-from pyrate_limiter import Duration, Rate, Limiter, InMemoryBucket
+from pyrate_limiter import Duration, Rate, Limiter, InMemoryBucket, LimiterDelayException
 from typing import Optional
 
 @dataclass
@@ -23,8 +23,8 @@ class APIConfig:
         self.api_key = os.getenv("API_KEY")
         if not self.api_key:
             raise ValueError("API_KEY environment variable is not set")
-        self.limiter = Limiter(InMemoryBucket([self.rate]))
-        self.burst_limiter = Limiter(InMemoryBucket([self.burst_rate]))
+        self.limiter = Limiter(InMemoryBucket([self.rate]), max_delay=200)
+        self.burst_limiter = Limiter(InMemoryBucket([self.burst_rate]), max_delay=200)
 
 # Instantiate the config
 config = APIConfig()
@@ -49,10 +49,9 @@ def fetch_games(start_time, end_time):
         try:
             config.limiter.try_acquire("api_call")
             config.burst_limiter.try_acquire("burst_api_call")
-        except Exception as e:
-            # Add a delay to backoff until it is good to call again
-            print(f"Rate limit exceeded: {str(e)}. Backing off.")
-            time.sleep(2)  # Backoff delay, adjust as needed
+        except LimiterDelayException as e:
+            # If delay exceeds max_delay, print message and retry.
+            print(f"Rate limit delay exceeded: {e}. Backing off.")
             continue
 
         # Make the API call
