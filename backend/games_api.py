@@ -35,9 +35,13 @@ def fetch_games(start_time, end_time):
         "x-api-key": config.api_key
     }
 
+    # Format the start and end times to match "YYYY-MM-DD HH:MM:SS"
+    start_time_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
+    end_time_str = end_time.strftime("%Y-%m-%d %H:%M:%S")
+
     params = {
-        "dateAfter": start_time.isoformat(),
-        "dateBefore": end_time.isoformat(),
+        "dateAfter": start_time_str,
+        "dateBefore": end_time_str,
         "limit": config.max_limit,  # Use the corrected limit of 50
         "offset": 0  # Start offset at 0 for the first call
     }
@@ -62,7 +66,12 @@ def fetch_games(start_time, end_time):
             break
 
         data = response.json()
-        all_games.extend(data['games'])
+        
+        if isinstance(data, list):
+            all_games.extend(data)
+        else:
+            print("Unexpected response format")
+        return all_games
 
         more_pages = data.get('has_more', False)
         
