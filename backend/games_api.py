@@ -39,7 +39,8 @@ def fetch_games(start_time, end_time):
     params = {
         "dateAfter": start_time.isoformat(),
         "dateBefore": end_time.isoformat(),
-        "limit": config.max_limit  # Use the corrected limit of 50
+        "limit": config.max_limit,  # Use the corrected limit of 50
+        "offset": 0  # Start offset at 0 for the first call
     }
 
     all_games = []
@@ -60,6 +61,10 @@ def fetch_games(start_time, end_time):
         all_games.extend(data['games'])
 
         more_pages = data.get('has_more', False)
+        
+        # Increment the offset to get the next set of data
+        if more_pages:
+            params["offset"] += config.max_limit
 
         # Respect API rate limits with a delay
         time.sleep(1)
