@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 import os
 import requests
-import time
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from pyrate_limiter import Duration, Rate, Limiter, InMemoryBucket
