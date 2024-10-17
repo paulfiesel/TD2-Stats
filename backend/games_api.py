@@ -7,9 +7,6 @@ from dotenv import load_dotenv
 from pyrate_limiter import Duration, Rate, Limiter, InMemoryBucket
 from typing import Optional
 
-# Load environment variables
-load_dotenv()
-
 @dataclass
 class APIConfig:
     api_url: str = "https://apiv2.legiontd2.com/games"
@@ -21,6 +18,10 @@ class APIConfig:
     burst_limiter: Limiter = field(init=False)
 
     def __post_init__(self):
+        # Load environment variables here as part of the initialization
+        load_dotenv()
+
+        self.api_key = os.getenv("API_KEY")
         if not self.api_key:
             raise ValueError("API_KEY environment variable is not set")
         self.limiter = Limiter(InMemoryBucket([self.rate]))
