@@ -47,8 +47,14 @@ def fetch_games(start_time, end_time):
     more_pages = True
 
     while more_pages:
-        config.limiter.try_acquire("api_call")
-        config.burst_limiter.try_acquire("burst_api_call")
+        try:
+            config.limiter.try_acquire("api_call")
+            config.burst_limiter.try_acquire("burst_api_call")
+        except Exception as e:
+            # Add a delay to backoff until it is good to call again
+            print(f"Rate limit exceeded: {str(e)}. Backing off.")
+            time.sleep(2)  # Backoff delay, adjust as needed
+            continue
 
         # Make the API call
         response = requests.get(config.api_url, headers=headers, params=params)
@@ -65,9 +71,6 @@ def fetch_games(start_time, end_time):
         # Increment the offset to get the next set of data
         if more_pages:
             params["offset"] += config.max_limit
-
-        # Respect API rate limits with a delay
-        time.sleep(1)
 
     return all_games
 
