@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from pyrate_limiter import Duration, Rate, Limiter, InMemoryBucket, LimiterDelayException
 from typing import Optional
+from app import db, Game
 
 @dataclass
 class APIConfig:
@@ -71,7 +72,7 @@ def fetch_games(start_time, end_time):
             all_games.extend(data)
         else:
             print("Unexpected response format")
-        return all_games
+            break  # Exit loop if data format is incorrect
 
         more_pages = data.get('has_more', False)
         
@@ -81,13 +82,34 @@ def fetch_games(start_time, end_time):
 
     return all_games
 
+def save_games_to_db(games):
+    for game in games:
+        # Avoid duplicates by checking match_id
+        existing_game = Game.query.filter_by(match_id=game["match_id"]).first()
+        if existing_game:
+            continue
+
+        # Create a new Game instance
+        new_game = Game(
+            match_id=game["match_id"],
+            date=game["date"],
+            queue_type=game["queue_type"],
+            player_count=game["player_count"],
+            human_count=game["human_count"],
+            game_length=game["game_length"]
+        )
+
+        db.session.add(new_game)  # Add to the session
+    db.session.commit()  # Save to the database
+
 # Function to get games from the last hour
 def get_last_hour_games():
     end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(hours=1)
 
     games = fetch_games(start_time, end_time)
-    print(f"Retrieved {len(games)} games from the last hour.")
+    save_games_to_db(games)
+    print(f"Saved {len(games)} games to the database.")
     return games
 
 # Call on startup
