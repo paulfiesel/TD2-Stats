@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from pyrate_limiter import Duration, Rate, Limiter, InMemoryBucket, LimiterDelayException
 from typing import Optional
-from app import db, Game
+from app import db, Game, app
 
 @dataclass
 class APIConfig:
@@ -48,18 +48,15 @@ def fetch_games(start_time, end_time):
     }
 
     all_games = []
-    more_pages = True
 
-    while more_pages:
+    while True:
         try:
             config.limiter.try_acquire("api_call")
             config.burst_limiter.try_acquire("burst_api_call")
         except LimiterDelayException as e:
-            # If delay exceeds max_delay, print message and retry.
             print(f"Rate limit delay exceeded: {e}. Backing off.")
             continue
 
-        # Make the API call
         response = requests.get(config.api_url, headers=headers, params=params)
 
         if response.status_code != 200:
@@ -67,36 +64,38 @@ def fetch_games(start_time, end_time):
             break
 
         data = response.json()
-        
+
+        # If the response is a list, append the results
         if isinstance(data, list):
             all_games.extend(data)
-        else:
-            print("Unexpected response format")
-            break  # Exit loop if data format is incorrect
 
-        more_pages = data.get('has_more', False)
-        
-        # Increment the offset to get the next set of data
-        if more_pages:
-            params["offset"] += config.max_limit
+            # Stop if fewer results than the limit are returned
+            if len(data) < config.max_limit:
+                break
+        else:
+            print("Unexpected response format.")
+            break # Exit loop if data format is incorrect
+
+        # Increment offset to fetch the next batch of results
+        params["offset"] += config.max_limit
 
     return all_games
 
 def save_games_to_db(games):
     for game in games:
-        # Avoid duplicates by checking match_id
-        existing_game = Game.query.filter_by(match_id=game["match_id"]).first()
+        # Avoid duplicates by checking `_id` (match ID in the schema)
+        existing_game = Game.query.filter_by(match_id=game["_id"]).first()
         if existing_game:
             continue
 
-        # Create a new Game instance
+        # Create a new Game instance with correct fields from the schema
         new_game = Game(
-            match_id=game["match_id"],
-            date=game["date"],
-            queue_type=game["queue_type"],
-            player_count=game["player_count"],
-            human_count=game["human_count"],
-            game_length=game["game_length"]
+            match_id=game["_id"],  # Unique match ID
+            date=game["date"],  # Timestamp of the game
+            queue_type=game["queueType"],  # Queue type (e.g., Classic)
+            player_count=game["playerCount"],  # Total players
+            human_count=game.get("humanCount", 0),  # Human players, default to 0 if missing
+            game_length=game["gameLength"]  # Duration in seconds
         )
 
         db.session.add(new_game)  # Add to the session
@@ -108,8 +107,11 @@ def get_last_hour_games():
     start_time = end_time - timedelta(hours=1)
 
     games = fetch_games(start_time, end_time)
-    save_games_to_db(games)
-    print(f"Saved {len(games)} games to the database.")
+
+    # Wrap save_games_to_db in the application context
+    with app.app_context():
+        save_games_to_db(games)
+        print(f"Saved {len(games)} games to the database.")
     return games
 
 # Call on startup
