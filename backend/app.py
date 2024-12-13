@@ -28,6 +28,24 @@ class Game(db.Model):
     def __repr__(self):
         return f"<Game {self.match_id}>"
 
+# Define a table to store players
+class Player(db.Model):
+    id = db.Column(db.Integer, primary_key=True)  # Unique player ID (auto-incremented)
+    player_id = db.Column(db.String, nullable=False)  # Player's unique ID
+    match_id = db.Column(db.String, db.ForeignKey('game.match_id'), nullable=False)  # Foreign key to Game's match_id
+    player_name = db.Column(db.String, nullable=False)  # Player's name
+    player_slot = db.Column(db.Integer, nullable=False)  # Player's slot (0-7, etc.)
+    legion = db.Column(db.String, nullable=False)  # Player's chosen legion
+    game_result = db.Column(db.String, nullable=False)  # Game result (e.g., win/loss)
+    overall_elo = db.Column(db.Float, nullable=False)  # Player's overall ELO rating
+    classic_elo = db.Column(db.Float, nullable=False)  # Player's classic ELO rating
+    party_size = db.Column(db.Integer, nullable=False)  # Party size (number of players in the team)
+    eco = db.Column(db.Float, nullable=False)  # Player's economy score
+    legion_elo = db.Column(db.Float, nullable=False)  # Legion-specific ELO rating
+
+    def __repr__(self):
+        return f"<Player {self.player_id}>"
+
 # Route to check the app is working
 @app.route('/healthz')
 def healthz():

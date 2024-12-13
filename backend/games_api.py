@@ -99,6 +99,35 @@ def save_games_to_db(games):
         )
 
         db.session.add(new_game)  # Add to the session
+
+        # Save players for the game
+        save_players_to_db(game["players"], game["_id"])  # Assume `game["players"]` contains player data
+
+    db.session.commit()  # Save to the database
+
+def save_players_to_db(players, match_id):
+    for player in players:
+        # Check if the player already exists (prevent duplicates)
+        existing_player = Player.query.filter_by(player_id=player["_id"], match_id=match_id).first()
+        if existing_player:
+            continue
+
+        # Create a new Player instance
+        new_player = Player(
+            player_id=player["_id"],
+            match_id=match_id,
+            player_name=player.get("name", "Unknown"),  # Default to "Unknown" if name is missing
+            player_slot=player["slot"],
+            legion=player["legion"],
+            game_result=player["result"],
+            overall_elo=player["overallElo"],
+            classic_elo=player["classicElo"],
+            party_size=player["partySize"],
+            eco=player["eco"],
+            legion_elo=player["legionElo"]
+        )
+
+        db.session.add(new_player)  # Add to the session
     db.session.commit()  # Save to the database
 
 # Function to get games from the last hour
