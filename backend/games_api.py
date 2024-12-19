@@ -108,38 +108,40 @@ def save_games_to_db(games):
     db.session.commit()  # Save to the database
 
 def save_players_to_db(players, match_id):
+    game = Game.query.filter_by(match_id=match_id).first()
+    if not game:
+        print(f"Warning: Game with match_id {match_id} not found. Skipping players.")
+        return
+
     for player in players:
-        print(player)  # Debugging: Print each player's data to identify the keys
-
-        # Use "id" for player ID, as indicated in the API documentation
-        player_id = player.get("id")  # Updated to use "id" instead of "_id"
-
+        player_id = player.get("id")
         if not player_id:
             print(f"Warning: Missing player ID in match {match_id}. Skipping player.")
             continue
 
-        # Check if the player already exists (prevent duplicates)
-        existing_player = Player.query.filter_by(player_id=player_id, match_id=match_id).first()
-        if existing_player:
-            continue
+        # Check if the player already exists
+        existing_player = Player.query.filter_by(player_id=player_id).first()
+        if not existing_player:
+            # Create a new Player instance
+            existing_player = Player(
+                player_id=player_id,
+                player_name=player.get("name", "Unknown"),
+                player_slot=player.get("slot", -1),
+                legion=player.get("legion", "Unknown"),
+                game_result=player.get("result", "Unknown"),
+                overall_elo=player.get("overallElo", 0.0),
+                classic_elo=player.get("classicElo", 0.0),
+                party_size=player.get("partySize", 0),
+                eco=player.get("eco", 0.0),
+                legion_elo=player.get("legionElo", 0.0)
+            )
+            db.session.add(existing_player)
 
-        # Create a new Player instance
-        new_player = Player(
-            player_id=player_id,
-            match_id=match_id,
-            player_name=player.get("name", "Unknown"),  # Default to "Unknown" if missing
-            legion=player.get("legion", "Unknown"),  # Default to "Unknown" if missing
-            game_result=player.get("result", "Unknown"),  # Use "Unknown" if result is missing
-            overall_elo=player.get("overallElo", 0.0),
-            classic_elo=player.get("classicElo", 0.0),
-            party_size=player.get("partySize", 0),
-            eco=player.get("eco", 0.0),
-            legion_elo=player.get("legionElo", 0.0)
-        )
+        # Associate player with the game
+        if existing_player not in game.players:
+            game.players.append(existing_player)
 
-        db.session.add(new_player)  # Add to the session
-
-    db.session.commit()  # Save to the database
+    db.session.commit()
 
 # Function to get games from the last hour
 def get_last_hour_games():
