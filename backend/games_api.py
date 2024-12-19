@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from pyrate_limiter import Duration, Rate, Limiter, InMemoryBucket, LimiterDelayException
 from typing import Optional
-from app import db, Game, app
+from app import db, Game, app, Player
 
 @dataclass
 class APIConfig:
@@ -43,8 +43,9 @@ def fetch_games(start_time, end_time):
     params = {
         "dateAfter": start_time_str,
         "dateBefore": end_time_str,
-        "limit": config.max_limit,  # Use the corrected limit of 50
-        "offset": 0  # Start offset at 0 for the first call
+        "limit": config.max_limit,
+        "offset": 0,
+        "includeDetails": "true"  # Use string "true" to match the API requirements
     }
 
     all_games = []
@@ -74,7 +75,7 @@ def fetch_games(start_time, end_time):
                 break
         else:
             print("Unexpected response format.")
-            break # Exit loop if data format is incorrect
+            break  # Exit loop if data format is incorrect
 
         # Increment offset to fetch the next batch of results
         params["offset"] += config.max_limit
@@ -99,7 +100,48 @@ def save_games_to_db(games):
         )
 
         db.session.add(new_game)  # Add to the session
+
+        # Save players for the game
+        if "playersData" in game:
+            save_players_to_db(game["playersData"], game["_id"])
+
     db.session.commit()  # Save to the database
+
+def save_players_to_db(players, match_id):
+    game = Game.query.filter_by(match_id=match_id).first()
+    if not game:
+        print(f"Warning: Game with match_id {match_id} not found. Skipping players.")
+        return
+
+    for player in players:
+        player_id = player.get("id")
+        if not player_id:
+            print(f"Warning: Missing player ID in match {match_id}. Skipping player.")
+            continue
+
+        # Check if the player already exists
+        existing_player = Player.query.filter_by(player_id=player_id).first()
+        if not existing_player:
+            # Create a new Player instance
+            existing_player = Player(
+                player_id=player_id,
+                player_name=player.get("name", "Unknown"),
+                player_slot=player.get("slot", -1),
+                legion=player.get("legion", "Unknown"),
+                game_result=player.get("result", "Unknown"),
+                overall_elo=player.get("overallElo", 0.0),
+                classic_elo=player.get("classicElo", 0.0),
+                party_size=player.get("partySize", 0),
+                eco=player.get("eco", 0.0),
+                legion_elo=player.get("legionElo", 0.0)
+            )
+            db.session.add(existing_player)
+
+        # Associate player with the game
+        if existing_player not in game.players:
+            game.players.append(existing_player)
+
+    db.session.commit()
 
 # Function to get games from the last hour
 def get_last_hour_games():
